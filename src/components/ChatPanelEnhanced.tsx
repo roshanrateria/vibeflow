@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, Send, Smile, MapPin, Image as ImageIcon, Mic, Video as VideoIcon, Reply, Check, CheckCheck, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import DOMPurify from 'dompurify';
 import type { ChatMessage } from '@/types/types';
 import { p2pService } from '@/services/p2pService';
 
@@ -20,6 +21,7 @@ export function ChatPanelEnhanced({ groupId, currentUserId, currentUsername, lan
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputValue, setInputValue] = useState('');
     const [isTyping, setIsTyping] = useState(false);
+    const [isListening, setIsListening] = useState(false);
     const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -120,11 +122,31 @@ export function ChatPanelEnhanced({ groupId, currentUserId, currentUsername, lan
         }
     };
 
-    const handleEmojiClick = () => {
+    const handleEmojiClick = useCallback(() => {
         const emojis = ['👍', '❤️', '😊', '🎉', '👏', '🔥', '✨', '💯'];
         const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
         setInputValue((prev) => prev + randomEmoji);
-    };
+    }, []);
+
+    const handleVoiceDictation = useCallback(() => {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert('Voice dictation not supported in this browser iteration.');
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = language === 'en' ? 'en-US' : 'hi-IN';
+        recognition.continuous = false;
+
+        recognition.onstart = () => setIsListening(true);
+        recognition.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            setInputValue(prev => prev + (prev.length > 0 ? ' ' : '') + transcript);
+        };
+        recognition.onend = () => setIsListening(false);
+        recognition.start();
+    }, [language]);
 
     const handleShareLocation = () => {
         const locationMessage: ChatMessage = {
@@ -281,7 +303,10 @@ export function ChatPanelEnhanced({ groupId, currentUserId, currentUsername, lan
                                                 </div>
                                             )}
 
-                                            <p className="text-sm leading-relaxed break-words">{message.content}</p>
+                                            <div 
+                                                className="text-sm leading-relaxed break-words markdown-sanitized"
+                                                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(message.content) }}
+                                            />
 
                                             <div className="flex items-center justify-end gap-1 mt-1">
                                                 <p className="text-xs opacity-60">{formatTime(message.timestamp)}</p>
@@ -376,6 +401,15 @@ export function ChatPanelEnhanced({ groupId, currentUserId, currentUsername, lan
                             className="rounded-2xl shrink-0"
                         >
                             <Smile className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant={isListening ? "default" : "outline"}
+                            size="icon"
+                            onClick={handleVoiceDictation}
+                            className={`rounded-2xl shrink-0 ${isListening ? 'animate-pulse bg-red-500 hover:bg-red-600 border-none' : ''}`}
+                            aria-label="Voice Input"
+                        >
+                            <Mic className="h-4 w-4" />
                         </Button>
                     </div>
                     <div className="flex gap-2">
