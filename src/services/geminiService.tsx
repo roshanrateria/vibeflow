@@ -93,6 +93,7 @@ export async function generateRoute(
 
         const prompt = `Generate an optimal route from ${JSON.stringify(from)} to ${JSON.stringify(to)} 
     considering crowd density: ${JSON.stringify(crowdData)}. 
+    Note: Provide safe and non-congested alternatives if crowdLevel is high!
     Provide step-by-step navigation instructions in ${language}.
     Return JSON with: id, from, to, steps (instruction, location, distance, estimatedTime), 
     estimatedTime, distance, crowdLevel.`;
